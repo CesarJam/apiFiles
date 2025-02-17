@@ -71,17 +71,19 @@ router.get("/cuadroGeneral/:id", async (req, res) => {
 router.put("/cuadroGeneral/:id", async (req, res) => {
     try {
         const { id } = req.params;
-        const {seccion } = req.body;
-        //const FieldValue = admin.firestore.FieldValue; // Referencia correcta
+        const { seccion, funcion } = req.body; // Ahora incluimos 'funcion' del cuerpo de la solicitud
         console.log("Cuerpo de la solicitud:", req.body);
-        // Validar que al menos un campo sea proporcionado
-        if (!seccion) {
+
+        // Validar que al menos uno de los campos 'seccion' o 'funcion' sea proporcionado
+        if (!seccion && !funcion) {
             return res.status(400).json({ 
-                error: "Debe proporcionar al menos uno de los campos:  'seccion'" 
+                error: "Debe proporcionar al menos uno de los campos: 'seccion' o 'funcion'" 
             });
         }
+
         // Objeto para almacenar las actualizaciones
         const actualizaciones = {};
+
         // Validar y sanitizar 'seccion' si está presente
         if (seccion) {
             if (typeof seccion !== "string" || seccion.trim() === "") {
@@ -91,17 +93,30 @@ router.put("/cuadroGeneral/:id", async (req, res) => {
             }
             actualizaciones.seccion = seccion.trim();
         }
+
+        // Validar y sanitizar 'funcion' si está presente
+        if (funcion) {
+            if (typeof funcion !== "string" || funcion.trim() === "") {
+                return res.status(400).json({ 
+                    error: "'funcion' debe ser una cadena no vacía" 
+                });
+            }
+            actualizaciones.funcion = funcion.trim();
+        }
+
         // Verificar existencia del documento
         const docRef = db.collection('seccion').doc(id);
         const doc = await docRef.get();
         if (!doc.exists) {
             return res.status(404).json({ error: "Registro no encontrado" });
         }
+
         console.log("Actualizaciones a aplicar:", actualizaciones);
         await docRef.update({
             ...actualizaciones,  // Solo las actualizaciones que quieras aplicar
             actualizadoEl: new Date().toLocaleString('es-MX')
         });
+
         // Obtener documento actualizado
         const documentoActualizado = await docRef.get();
         res.status(200).json({
@@ -119,6 +134,7 @@ router.put("/cuadroGeneral/:id", async (req, res) => {
         });
     }
 });
+
 
 // Eliminar un registro por ID
 router.delete("/cuadroGeneral/:id", async (req, res) => {
