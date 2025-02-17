@@ -35,4 +35,21 @@ Ejecutar el pull
 git pull origin main
 ```
   
+# Liberar el puerto 5000
+
+
+Identifica el proceso que usa el puerto 5000:
+
+En Windows, abre PowerShell y ejecuta:
+```bash
+  netstat -ano | findstr :5000
+```
+Esto te mostrará el ID del proceso (PID) que está utilizando ese puerto.
+Termina el proceso:
+Si confirmas que puedes cerrar ese proceso, usa:
+```bash
+  taskkill /PID <PID> /F
+```
+Reemplaza < PID > por el número correspondiente.
+
 
