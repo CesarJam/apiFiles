@@ -7,7 +7,7 @@ const { db } = require("./firebaseConfig");
  * SERIES DOCUMENTALES
  */
 // Ruta para crear series y subseries
-router.post("/api/series", async (req, res) => {
+router.post("/series", async (req, res) => {
     try {
         console.log("Cuerpo de la solicitud:", req.body);
         const { codigo, nombre, codigoSeccion, subseries } = req.body;
@@ -40,7 +40,7 @@ router.post("/api/series", async (req, res) => {
 });
 
 //Obtener las series y subseries (todas)
-router.get("/api/series", async (req, res) => {
+router.get("/series", async (req, res) => {
     try {
         const seriesSnapshot = await db.collection("series").get();
 
@@ -76,7 +76,7 @@ router.get("/api/series", async (req, res) => {
 });
 
 //obtener las series y subseries especificas de una seccion(area)
-router.get("/api/series/codigoSeccion/:codigoSeccion", async (req, res) => {
+router.get("/series/codigoSeccion/:codigoSeccion", async (req, res) => {
     try {
         const { codigoSeccion } = req.params;
 
@@ -123,7 +123,7 @@ router.get("/api/series/codigoSeccion/:codigoSeccion", async (req, res) => {
 });
 
 //Modificar el nombre de la serie
-router.put("/api/series/:id", async (req, res) => {
+router.put("/series/:id", async (req, res) => {
     try {
         const { id } = req.params;
         const { nombre } = req.body;
@@ -151,7 +151,7 @@ router.put("/api/series/:id", async (req, res) => {
 });
 
 //Agregar mas subseries a la serie especifica agregada anteriormente
-router.put("/api/series/:id/subseries", async (req, res) => {
+router.put("/series/:id/subseries", async (req, res) => {
     try {
         const { id } = req.params;
         const { subseries } = req.body;
@@ -185,7 +185,7 @@ router.put("/api/series/:id/subseries", async (req, res) => {
 });
 
 //Eliminar la serie con todas sus subseries
-router.delete("/api/series/:id", async (req, res) => {
+router.delete("/series/:id", async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -221,7 +221,7 @@ router.delete("/api/series/:id", async (req, res) => {
 });
 
 //Eliminar una subserie especifica a partir del id de la serie y el id de la subserie
-router.delete("/api/series/:serieId/subseries/:subserieId", async (req, res) => {
+router.delete("/series/:serieId/subseries/:subserieId", async (req, res) => {
     try {
         const { serieId, subserieId } = req.params;
 
