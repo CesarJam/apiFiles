@@ -122,6 +122,44 @@ router.get("/series/codigoSeccion/:codigoSeccion", async (req, res) => {
     }
 });
 
+//obtener todos los datos de una serie en especifica
+// Obtener una serie específica por su ID
+router.get("/series/:idSerie", async (req, res) => {
+    try {
+        const { idSerie } = req.params; // Obtener el ID de la serie desde la URL
+
+        // Verificar si la serie existe
+        const serieRef = db.collection("series").doc(idSerie);
+        const serieDoc = await serieRef.get();
+
+        if (!serieDoc.exists) {
+            return res.status(404).json({ message: "Serie no encontrada" });
+        }
+
+        // Obtener los datos de la serie
+        const serieData = serieDoc.data();
+
+        // Obtener las subseries de la subcolección
+        const subseriesSnapshot = await serieRef.collection("subseries").get();
+        const subseries = subseriesSnapshot.docs.map(sub => ({
+            id: sub.id,
+            ...sub.data()
+        }));
+
+        // Construir la respuesta
+        const serie = {
+            id: serieDoc.id,
+            ...serieData,
+            subseries
+        };
+
+        return res.status(200).json(serie);
+    } catch (error) {
+        console.error("Error al obtener la serie:", error);
+        return res.status(500).json({ error: "Error interno del servidor" });
+    }
+});
+
 //Modificar el nombre de la serie
 router.put("/series/:id", async (req, res) => {
     try {
