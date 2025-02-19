@@ -160,14 +160,15 @@ router.get("/series/:idSerie", async (req, res) => {
     }
 });
 
-//Modificar el nombre de la serie
+// Modificar la serie y sus subseries
 router.put("/series/:id", async (req, res) => {
     try {
         const { id } = req.params;
-        const { nombre } = req.body;
+        const { nombre, codigoSeccion, subseries } = req.body;
 
-        if (!nombre) {
-            return res.status(400).json({ error: "Debes proporcionar un nuevo nombre para la serie." });
+        // Validar datos requeridos
+        if (!nombre || !codigoSeccion) {
+            return res.status(400).json({ error: "Debes proporcionar un nombre y un código de sección para la serie." });
         }
 
         // Referencia al documento de la serie
@@ -178,12 +179,40 @@ router.put("/series/:id", async (req, res) => {
             return res.status(404).json({ error: "Serie no encontrada" });
         }
 
-        // Actualizar solo el nombre de la serie
-        await serieRef.update({ nombre });
+        // Actualizar los datos de la serie
+        await serieRef.update({ nombre, codigoSeccion });
 
-        return res.status(200).json({ message: "Nombre de la serie actualizado con éxito", serieId: id, nuevoNombre: nombre });
+        // Si se proporcionan subseries, actualizarlas
+        if (subseries && Array.isArray(subseries)) {
+            const subseriesRef = serieRef.collection("subseries");
+
+            // Eliminar todas las subseries existentes
+            const subseriesSnapshot = await subseriesRef.get();
+            const batch = db.batch();
+            subseriesSnapshot.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+            await batch.commit();
+
+            // Agregar las nuevas subseries
+            for (const sub of subseries) {
+                if (sub.codigo && sub.nombre) {
+                    await subseriesRef.doc(sub.codigo).set({
+                        nombre: sub.nombre
+                    });
+                }
+            }
+        }
+
+        return res.status(200).json({ 
+            message: "Serie y subseries actualizadas con éxito", 
+            serieId: id, 
+            nuevoNombre: nombre,
+            nuevoCodigoSeccion: codigoSeccion,
+            subseriesActualizadas: subseries || []
+        });
     } catch (error) {
-        console.error("Error al actualizar el nombre de la serie:", error);
+        console.error("Error al actualizar la serie y subseries:", error);
         return res.status(500).json({ error: "Error interno del servidor" });
     }
 });
