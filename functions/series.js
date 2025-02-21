@@ -217,6 +217,70 @@ router.put("/series/:id", async (req, res) => {
     }
 });
 
+// Modificar la serie y subseries desde el CADIDO
+router.put("/seriesCADIDO/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { nombre, codigoSeccion, subseries } = req.body;
+
+        // Validar datos requeridos
+        if (!nombre || !codigoSeccion) {
+            return res.status(400).json({ error: "Debes proporcionar un nombre y un código de sección para la serie." });
+        }
+
+        // Referencia al documento de la serie
+        const serieRef = db.collection("series").doc(id);
+        const serieDoc = await serieRef.get();
+
+        if (!serieDoc.exists) {
+            return res.status(404).json({ error: "Serie no encontrada" });
+        }
+
+        // Actualizar los datos de la serie
+        await serieRef.update({ nombre, codigoSeccion });
+
+        // Si se proporcionan subseries, actualizarlas
+        if (subseries && Array.isArray(subseries)) {
+            const subseriesRef = serieRef.collection("subseries");
+
+            // Eliminar todas las subseries existentes
+            const subseriesSnapshot = await subseriesRef.get();
+            const batchDelete = db.batch();
+            subseriesSnapshot.forEach(doc => {
+                batchDelete.delete(doc.ref);
+            });
+            await batchDelete.commit();
+
+            // Agregar las nuevas subseries
+            for (const sub of subseries) {
+                if (sub.codigo && sub.nombre && sub.aniosTramite && sub.datosPersonales && sub.valoresDocumentales &&
+                    sub.aniosConcentracion && sub.tecnicaSeleccion && sub.observaciones) {
+                    await subseriesRef.doc(sub.codigo).set({
+                        nombre: sub.nombre, 
+                        aniosTramite: sub.aniosTramite,
+                        datosPersonales: sub.datosPersonales,
+                        valoresDocumentales: sub.valoresDocumentales,
+                        aniosConcentracion: sub.aniosConcentracion,
+                        tecnicaSeleccion: sub.tecnicaSeleccion,
+                        observaciones: sub.observaciones
+                    });
+                }
+            }
+        }
+
+        return res.status(200).json({ 
+            message: "Serie y subseries actualizadas con éxito", 
+            serieId: id, 
+            nuevoNombre: nombre,
+            nuevoCodigoSeccion: codigoSeccion,
+            subseriesActualizadas: subseries || []
+        });
+    } catch (error) {
+        console.error("Error al actualizar la serie y subseries:", error);
+        return res.status(500).json({ error: "Error interno del servidor" });
+    }
+});
+
 //Agregar mas subseries a la serie especifica agregada anteriormente
 router.put("/series/:id/subseries", async (req, res) => {
     try {
