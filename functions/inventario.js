@@ -26,22 +26,23 @@ router.post("/inventario", async (req, res) => {
             inmueble,
             ubicacion,
             codigoSerie,
-            anio
+            anio,
+            codigoSeccion
         } = req.body;
 
         // Validar campos obligatorios
         if (
             !numeroExpediente || typeof numeroExpediente !== "string" || numeroExpediente.trim() === "" ||
             !codigoSerie || typeof codigoSerie !== "string" || codigoSerie.trim() === "" ||
-            !asunto || typeof asunto !== "string" || asunto.trim() === ""
+            !asunto || typeof asunto !== "string" || asunto.trim() === "" ||
+            !codigoSeccion || typeof codigoSeccion !== "string" || codigoSeccion.trim() === "" 
         ) {
-            return res.status(400).json({ error: "Número de expediente, código de serie y asunto son obligatorios." });
+            return res.status(400).json({ error: "Número de expediente, código de serie, asunto y codigoSeccion son obligatorios." });
         }
 
         // Generar un ID automático para el documento en la colección "inventario"
         const serieRef = db.collection("inventario").doc(); // ID generado automáticamente
         await serieRef.set({
-            id: serieRef.id, // Guardar el ID generado
             numeroExpediente,
             asunto,
             tipo,
@@ -57,7 +58,8 @@ router.post("/inventario", async (req, res) => {
             inmueble,
             ubicacion,
             codigoSerie,
-            anio
+            anio,
+            codigoSeccion
         });
 
         return res.status(201).json({ message: "Inventario registrado con éxito", id: serieRef.id });
@@ -91,20 +93,31 @@ router.get("/inventario", async (req, res) => {
     }
 });
 
-//consultar inventario por año
-router.get("/inventario/anio/:anio", async (req, res) => {
+//consultar inventario por año y sección
+router.get("/inventario/anio/:anio/codigoSeccion/:codigoSeccion", async (req, res) => {
     try {
-        const { anio } = req.params;
+        const { anio, codigoSeccion } = req.params;
 
+        // Validamos que se proporcione el año y que sea numérico
         if (!anio || isNaN(anio)) {
             return res.status(400).json({ error: "El año es obligatorio y debe ser numérico." });
         }
+        // Validamos que se proporcione el código de sección
+        if (!codigoSeccion) {
+            return res.status(400).json({ error: "El codigoSeccion es obligatorio." });
+        }
 
         const inventarioRef = db.collection("inventario");
-        const snapshot = await inventarioRef.where("anio", "==", anio).get();
+        // Consulta usando ambas condiciones: anio y codigoSeccion
+        const snapshot = await inventarioRef
+            .where("anio", "==", anio)
+            .where("codigoSeccion", "==", codigoSeccion)
+            .get();
 
         if (snapshot.empty) {
-            return res.status(404).json({ message: `No hay registros en el inventario para el año ${anio}.` });
+            return res.status(404).json({ 
+                message: `No hay registros en el inventario para el año ${anio} y codigoSeccion ${codigoSeccion}.` 
+            });
         }
 
         const inventarios = [];
@@ -114,7 +127,7 @@ router.get("/inventario/anio/:anio", async (req, res) => {
 
         return res.status(200).json(inventarios);
     } catch (error) {
-        console.error("Error al obtener el inventario por año:", error);
+        console.error("Error al obtener el inventario:", error);
         return res.status(500).json({ error: "Error interno del servidor" });
     }
 });
