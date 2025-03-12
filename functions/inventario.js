@@ -157,6 +157,103 @@ router.delete("/inventario/:numeroExpediente", async (req, res) => {
     }
 });
 
+// MÉTODO DE PRUEBA POST
+router.post("/inventarioStatus", async (req, res) => {
+    try {
+        console.log("Cuerpo de la solicitud:", req.body);
+        
+        const {
+            numeroExpediente,
+            asunto,
+            tipo,
+            numeroFojas,
+            soporteDocumental,
+            aniosTramite,
+            aniosConcentracion,
+            condicionesAcceso,
+            aniosReserva,
+            tradicionDocumental,
+            fechaApertura,
+            fechaCierre,
+            inmueble,
+            ubicacion,
+            codigoSerie,
+            anio,
+            codigoSeccion,
+            status
+        } = req.body;
 
+        // Validar campos obligatorios
+        if (
+            !numeroExpediente || typeof numeroExpediente !== "string" || numeroExpediente.trim() === "" ||
+            !codigoSerie || typeof codigoSerie !== "string" || codigoSerie.trim() === "" ||
+            !asunto || typeof asunto !== "string" || asunto.trim() === "" ||
+            !codigoSeccion || typeof codigoSeccion !== "string" || codigoSeccion.trim() === "" 
+        ) {
+            return res.status(400).json({ error: "Número de expediente, código de serie, asunto y codigoSeccion son obligatorios." });
+        }
+
+        // Validar estructura de "status"
+        if (!status || typeof status !== "object") {
+            return res.status(400).json({ error: "El campo 'status' es obligatorio y debe ser un objeto." });
+        }
+
+        const { recibido, tramite, concluido } = status;
+
+        if (!recibido || !recibido.fecha || !Array.isArray(recibido.areaTurnado) || recibido.areaTurnado.length === 0) {
+            return res.status(400).json({ error: "El estado 'recibido' debe contener una fecha y al menos un área asignada." });
+        }
+        /*
+        if (!tramite || !tramite.fecha) {
+            return res.status(400).json({ error: "El estado 'tramite' debe contener una fecha." });
+        }
+
+        if (!concluido || !concluido.fecha) {
+            return res.status(400).json({ error: "El estado 'concluido' debe contener una fecha." });
+        }*/
+
+        // Generar un ID automático para el documento en la colección "inventario"
+        const serieRef = db.collection("inventario").doc(); // ID generado automáticamente
+        await serieRef.set({
+            numeroExpediente,
+            asunto,
+            tipo,
+            numeroFojas,
+            soporteDocumental,
+            aniosTramite,
+            aniosConcentracion,
+            condicionesAcceso,
+            aniosReserva,
+            tradicionDocumental,
+            fechaApertura,
+            fechaCierre,
+            inmueble,
+            ubicacion,
+            codigoSerie,
+            anio,
+            codigoSeccion,
+            status: {
+                recibido: {
+                    fecha: recibido.fecha,
+                    areaTurnado: recibido.areaTurnado,
+                    observaciones: recibido.observaciones || "Sin observaciones"
+                },
+                tramite: {
+                    fecha: tramite.fecha || "AAAA-MM-DD",
+                    observaciones: tramite.observaciones || "Sin observaciones"
+                },
+                concluido: {
+                    fecha: concluido.fecha || "AAAA-MM-DD",
+                    observaciones: concluido.observaciones || "Sin observaciones"
+                }
+            }
+        });
+
+        return res.status(201).json({ message: "Inventario registrado con éxito", id: serieRef.id });
+    } catch (error) {
+        console.error("Error al registrar el inventario:", error);
+        return res.status(500).json({ error: "Error interno del servidor" });
+    }
+});
 
 module.exports = router;
