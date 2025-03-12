@@ -161,15 +161,12 @@ router.delete("/inventario/:numeroExpediente", async (req, res) => {
 router.post("/inventarioStatus", async (req, res) => {
     try {
         console.log("Cuerpo de la solicitud:", req.body);
-        
         const {
             numeroExpediente,
             asunto,
             tipo,
             numeroFojas,
             soporteDocumental,
-            aniosTramite,
-            aniosConcentracion,
             condicionesAcceso,
             aniosReserva,
             tradicionDocumental,
@@ -178,6 +175,10 @@ router.post("/inventarioStatus", async (req, res) => {
             inmueble,
             ubicacion,
             codigoSerie,
+            nombreSerie,
+            valorDocumental,
+            aniosTramite,
+            aniosConcentracion,
             anio,
             codigoSeccion,
             status
@@ -190,27 +191,17 @@ router.post("/inventarioStatus", async (req, res) => {
             !asunto || typeof asunto !== "string" || asunto.trim() === "" ||
             !codigoSeccion || typeof codigoSeccion !== "string" || codigoSeccion.trim() === "" 
         ) {
-            return res.status(400).json({ error: "Número de expediente, código de serie, asunto y codigoSeccion son obligatorios." });
+            return res.status(400).json({ error: "Número de expediente, código de serie, asunto y código de sección son obligatorios." });
         }
 
-        // Validar estructura de "status"
-        if (!status || typeof status !== "object") {
-            return res.status(400).json({ error: "El campo 'status' es obligatorio y debe ser un objeto." });
-        }
+        // Validar estructura de "status" si existe
+        const statusData = status && typeof status === "object" ? status : {};
+        const { recibido = {}, tramite = {}, concluido = {} } = statusData;
 
-        const { recibido, tramite, concluido } = status;
-
-        if (!recibido || !recibido.fecha || !Array.isArray(recibido.areaTurnado) || recibido.areaTurnado.length === 0) {
+        // Validar "recibido"
+        if (!recibido.fecha || !Array.isArray(recibido.areaTurnado) || recibido.areaTurnado.length === 0) {
             return res.status(400).json({ error: "El estado 'recibido' debe contener una fecha y al menos un área asignada." });
         }
-        /*
-        if (!tramite || !tramite.fecha) {
-            return res.status(400).json({ error: "El estado 'tramite' debe contener una fecha." });
-        }
-
-        if (!concluido || !concluido.fecha) {
-            return res.status(400).json({ error: "El estado 'concluido' debe contener una fecha." });
-        }*/
 
         // Generar un ID automático para el documento en la colección "inventario"
         const serieRef = db.collection("inventario").doc(); // ID generado automáticamente
@@ -220,16 +211,18 @@ router.post("/inventarioStatus", async (req, res) => {
             tipo,
             numeroFojas,
             soporteDocumental,
-            aniosTramite,
-            aniosConcentracion,
             condicionesAcceso,
-            aniosReserva,
+            aniosReserva: aniosReserva || "0",
             tradicionDocumental,
             fechaApertura,
-            fechaCierre,
+            fechaCierre: fechaCierre || "AAAA-MM-DD",
             inmueble,
             ubicacion,
             codigoSerie,
+            nombreSerie,
+            valorDocumental,
+            aniosTramite,
+            aniosConcentracion,
             anio,
             codigoSeccion,
             status: {
@@ -255,5 +248,6 @@ router.post("/inventarioStatus", async (req, res) => {
         return res.status(500).json({ error: "Error interno del servidor" });
     }
 });
+
 
 module.exports = router;
