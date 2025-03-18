@@ -132,6 +132,50 @@ router.get("/inventario/anio/:anio/codigoSeccion/:codigoSeccion", async (req, re
     }
 });
 
+// Consultar inventario por fechaRecibido y areaRecibido
+router.get("/consultaInventario/anio/:anio/codigoSeccion/:codigoSeccion", async (req, res) => {
+    try {
+        const { anio, codigoSeccion } = req.params;
+
+        // Validamos que se proporcione el año y que sea numérico
+        if (!anio || isNaN(anio)) {
+            return res.status(400).json({ error: "El año es obligatorio y debe ser numérico." });
+        }
+
+        // Validamos que se proporcione el código de sección (areaRecibido)
+        if (!codigoSeccion) {
+            return res.status(400).json({ error: "El codigoSeccion es obligatorio." });
+        }
+
+        console.log(anio + " - " + codigoSeccion);
+
+        const inventarioRef = db.collection("inventario");
+
+        // Consulta usando ambas condiciones: fechaRecibido y areaRecibido
+        const snapshot = await inventarioRef
+            .where("status.recibido.fecha", ">=", `${anio}-01-01`)  // Filtra por año
+            .where("status.recibido.fecha", "<=", `${anio}-12-31`)  // Filtra por año
+            .where("status.recibido.areaRecibido", "==", codigoSeccion)  // Filtra por areaRecibido (campo de tipo cadena)
+            .get();
+
+        if (snapshot.empty) {
+            return res.status(404).json({ 
+                message: `No hay registros en el inventario para el año ${anio} y el área recibido ${codigoSeccion}.` 
+            });
+        }
+
+        const inventarios = [];
+        snapshot.forEach(doc => {
+            inventarios.push({ id: doc.id, ...doc.data() });
+        });
+
+        return res.status(200).json(inventarios);
+    } catch (error) {
+        console.error("Error al obtener el inventario:", error);
+        return res.status(500).json({ error: "Error interno del servidor" });
+    }
+});
+
 
 //Metódo para eliminar
 router.delete("/inventario/:numeroExpediente", async (req, res) => {
@@ -161,6 +205,7 @@ router.delete("/inventario/:numeroExpediente", async (req, res) => {
 router.post("/inventarioStatus", async (req, res) => {
     try {
         console.log("Cuerpo de la solicitud:", req.body);
+
         const {
             numeroExpediente,
             asunto,
@@ -170,28 +215,35 @@ router.post("/inventarioStatus", async (req, res) => {
             condicionesAcceso,
             aniosReserva,
             tradicionDocumental,
-            fechaApertura,
-            fechaCierre,
             inmueble,
             ubicacion,
-            codigoSerie,
+            codigoSubserie,  // Corregí el nombre del campo a "codigoSubserie"
             nombreSerie,
             valorDocumental,
             aniosTramite,
             aniosConcentracion,
-            anio,
-            codigoSeccion,
             status
         } = req.body;
 
         // Validar campos obligatorios
         if (
             !numeroExpediente || typeof numeroExpediente !== "string" || numeroExpediente.trim() === "" ||
-            !codigoSerie || typeof codigoSerie !== "string" || codigoSerie.trim() === "" ||
             !asunto || typeof asunto !== "string" || asunto.trim() === "" ||
-            !codigoSeccion || typeof codigoSeccion !== "string" || codigoSeccion.trim() === "" 
+            !tipo || typeof tipo !== "string" || tipo.trim() === "" ||
+            !numeroFojas || typeof numeroFojas !== "string" || numeroFojas.trim() === "" ||
+            !soporteDocumental || typeof soporteDocumental !== "string" || soporteDocumental.trim() === "" ||
+            !condicionesAcceso || typeof condicionesAcceso !== "string" || condicionesAcceso.trim() === "" ||
+            !aniosReserva || typeof aniosReserva !== "string" || aniosReserva.trim() === "" ||
+            !tradicionDocumental || typeof tradicionDocumental !== "string" || tradicionDocumental.trim() === "" ||
+            !inmueble || typeof inmueble !== "string" || inmueble.trim() === "" ||
+            !ubicacion || typeof ubicacion !== "string" || ubicacion.trim() === "" ||
+            !codigoSubserie || typeof codigoSubserie !== "string" || codigoSubserie.trim() === "" ||
+            !nombreSerie || typeof nombreSerie !== "string" || nombreSerie.trim() === "" ||
+            !valorDocumental || typeof valorDocumental !== "string" || valorDocumental.trim() === "" ||
+            !aniosTramite || typeof aniosTramite !== "string" || aniosTramite.trim() === "" ||
+            !aniosConcentracion || typeof aniosConcentracion !== "string" || aniosConcentracion.trim() === ""
         ) {
-            return res.status(400).json({ error: "Número de expediente, código de serie, asunto y código de sección son obligatorios." });
+            return res.status(400).json({ error: "Todos los campos son obligatorios." });
         }
 
         // Validar estructura de "status" si existe
@@ -212,22 +264,19 @@ router.post("/inventarioStatus", async (req, res) => {
             numeroFojas,
             soporteDocumental,
             condicionesAcceso,
-            aniosReserva: aniosReserva || "0",
+            aniosReserva,
             tradicionDocumental,
-            fechaApertura,
-            fechaCierre: fechaCierre || "AAAA-MM-DD",
             inmueble,
             ubicacion,
-            codigoSerie,
+            codigoSubserie,  // Usé el campo correcto "codigoSubserie"
             nombreSerie,
             valorDocumental,
             aniosTramite,
             aniosConcentracion,
-            anio,
-            codigoSeccion,
             status: {
                 recibido: {
                     fecha: recibido.fecha,
+                    areaRecibido: recibido.areaRecibido,
                     areaTurnado: recibido.areaTurnado,
                     observaciones: recibido.observaciones || "Sin observaciones"
                 },
@@ -248,6 +297,7 @@ router.post("/inventarioStatus", async (req, res) => {
         return res.status(500).json({ error: "Error interno del servidor" });
     }
 });
+
 
 
 module.exports = router;
