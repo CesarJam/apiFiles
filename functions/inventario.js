@@ -209,7 +209,6 @@ router.post("/inventarioStatus", async (req, res) => {
         const {
             numeroExpediente,
             asunto,
-            tipo,
             numeroFojas,
             soporteDocumental,
             condicionesAcceso,
@@ -217,7 +216,7 @@ router.post("/inventarioStatus", async (req, res) => {
             tradicionDocumental,
             inmueble,
             ubicacion,
-            codigoSubserie,  // Corregí el nombre del campo a "codigoSubserie"
+            codigoSubserie,
             nombreSerie,
             valorDocumental,
             aniosTramite,
@@ -229,7 +228,6 @@ router.post("/inventarioStatus", async (req, res) => {
         if (
             !numeroExpediente || typeof numeroExpediente !== "string" || numeroExpediente.trim() === "" ||
             !asunto || typeof asunto !== "string" || asunto.trim() === "" ||
-            !tipo || typeof tipo !== "string" || tipo.trim() === "" ||
             !numeroFojas || typeof numeroFojas !== "string" || numeroFojas.trim() === "" ||
             !soporteDocumental || typeof soporteDocumental !== "string" || soporteDocumental.trim() === "" ||
             !condicionesAcceso || typeof condicionesAcceso !== "string" || condicionesAcceso.trim() === "" ||
@@ -248,11 +246,11 @@ router.post("/inventarioStatus", async (req, res) => {
 
         // Validar estructura de "status" si existe
         const statusData = status && typeof status === "object" ? status : {};
-        const { recibido = {}, tramite = {}, concluido = {} } = statusData;
+        const { creado = {}, tramite = {}, concluido = {} } = statusData;
 
-        // Validar "recibido"
-        if (!recibido.fecha || !Array.isArray(recibido.areaTurnado) || recibido.areaTurnado.length === 0) {
-            return res.status(400).json({ error: "El estado 'recibido' debe contener una fecha y al menos un área asignada." });
+        // Validar "creado"
+        if (!creado.fecha || !Array.isArray(creado.areaTurnado)) {
+            return res.status(400).json({ error: "El estado 'recibido' debe contener una fecha" });
         }
 
         // Generar un ID automático para el documento en la colección "inventario"
@@ -260,7 +258,6 @@ router.post("/inventarioStatus", async (req, res) => {
         await serieRef.set({
             numeroExpediente,
             asunto,
-            tipo,
             numeroFojas,
             soporteDocumental,
             condicionesAcceso,
@@ -274,19 +271,26 @@ router.post("/inventarioStatus", async (req, res) => {
             aniosTramite,
             aniosConcentracion,
             status: {
-                recibido: {
-                    fecha: recibido.fecha,
-                    areaRecibido: recibido.areaRecibido,
-                    areaTurnado: recibido.areaTurnado,
-                    observaciones: recibido.observaciones || "Sin observaciones"
+                creado: {
+                    tipo: creado.tipo, //Ya sea enviado o recibido
+                    fecha: creado.fecha,
+                    hora: creado.hora,
+                    areaCreado: creado.areaCreado,
+                    areaTurnado: creado.areaTurnado || "Sin Asignar",
+                    observaciones: creado.observaciones || "Sin observaciones",
+                    usuario: creado.usuario || "Administrador"
                 },
                 tramite: {
                     fecha: tramite.fecha || "AAAA-MM-DD",
-                    observaciones: tramite.observaciones || "Sin observaciones"
+                    hora: tramite.hora || "Sin asignar",
+                    observaciones: tramite.observaciones || "Sin observaciones",
+                    usuario: tramite.usuario || "Administrador"
                 },
                 concluido: {
                     fecha: concluido.fecha || "AAAA-MM-DD",
-                    observaciones: concluido.observaciones || "Sin observaciones"
+                    hora: concluido.hora || "Sin asignar",
+                    observaciones: concluido.observaciones || "Sin observaciones",
+                    usuario: concluido.usuario || "Administrador"
                 }
             }
         });
