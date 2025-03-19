@@ -153,9 +153,9 @@ router.get("/consultaInventario/anio/:anio/codigoSeccion/:codigoSeccion", async 
 
         // Consulta usando ambas condiciones: fechaRecibido y areaRecibido
         const snapshot = await inventarioRef
-            .where("status.recibido.fecha", ">=", `${anio}-01-01`)  // Filtra por año
-            .where("status.recibido.fecha", "<=", `${anio}-12-31`)  // Filtra por año
-            .where("status.recibido.areaRecibido", "==", codigoSeccion)  // Filtra por areaRecibido (campo de tipo cadena)
+            .where("status.creado.fecha", ">=", `${anio}-01-01`)  // Filtra por año
+            .where("status.creado.fecha", "<=", `${anio}-12-31`)  // Filtra por año
+            .where("status.creado.areaCreado", "==", codigoSeccion)  // Filtra por areaRecibido (campo de tipo cadena)
             .get();
 
         if (snapshot.empty) {
