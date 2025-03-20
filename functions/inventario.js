@@ -93,6 +93,25 @@ router.get("/inventario", async (req, res) => {
     }
 });
 
+//Consultar inventario por id
+router.get("/inventario/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+        const inventarioRef = db.collection("inventario").doc(id);
+        const doc = await inventarioRef.get();
+
+        // Verificar si el documento existe
+        if (!doc.exists) {
+            return res.status(404).json({ message: "No se encontró el registro en el inventario." });
+        }
+
+        return res.status(200).json({ id: doc.id, ...doc.data() });
+    } catch (error) {
+        console.error("Error al obtener el inventario por ID:", error);
+        return res.status(500).json({ error: "Error interno del servidor" });
+    }
+});
+
 //consultar inventario por año y sección
 router.get("/inventario/anio/:anio/codigoSeccion/:codigoSeccion", async (req, res) => {
     try {
