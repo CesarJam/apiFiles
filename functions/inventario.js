@@ -176,6 +176,51 @@ router.get("/consultaInventario/anio/:anio/codigoSeccion/:codigoSeccion", async 
     }
 });
 
+// Consultar inventario por año y área turnada
+router.get("/consultaInventarioTurnado/anio/:anio/areaTurnado/:areaTurnado", async (req, res) => {
+    try {
+        const { anio, areaTurnado } = req.params;
+
+        // Validamos que se proporcione el año y sea numérico
+        if (!anio || isNaN(anio)) {
+            return res.status(400).json({ error: "El año es obligatorio y debe ser numérico." });
+        }
+
+        // Validamos que se proporcione el área turnada
+        if (!areaTurnado) {
+            return res.status(400).json({ error: "El área turnada es obligatoria." });
+        }
+
+        console.log(`Consultando inventario para el año ${anio} y área turnada ${areaTurnado}`);
+
+        const inventarioRef = db.collection("inventario");
+
+        // Realizamos la consulta
+        const snapshot = await inventarioRef
+            .where("status.creado.fecha", ">=", `${anio}-01-01`)  // Filtra desde el inicio del año
+            .where("status.creado.fecha", "<=", `${anio}-12-31`)  // Filtra hasta el final del año
+            .where("status.creado.areaTurnado", "array-contains", areaTurnado)  // Filtra por área turnada en un array
+            .get();
+
+        // Verificamos si hay resultados
+        if (snapshot.empty) {
+            return res.status(404).json({ 
+                message: `No hay registros en el inventario para el año ${anio} y el área turnada ${areaTurnado}.` 
+            });
+        }
+
+        const inventarios = [];
+        snapshot.forEach(doc => {
+            inventarios.push({ id: doc.id, ...doc.data() });
+        });
+
+        return res.status(200).json(inventarios);
+    } catch (error) {
+        console.error("Error al obtener el inventario:", error);
+        return res.status(500).json({ error: "Error interno del servidor" });
+    }
+});
+
 
 //Metódo para eliminar
 router.delete("/inventario/:numeroExpediente", async (req, res) => {
@@ -274,7 +319,7 @@ router.post("/inventarioStatus", async (req, res) => {
                 creado: {
                     tipo: creado.tipo, //Ya sea enviado o recibido
                     fecha: creado.fecha,
-                    hora: creado.hora,
+                    hora: creado.hora || new Date().toLocaleTimeString(),
                     areaCreado: creado.areaCreado,
                     areaTurnado: creado.areaTurnado || "Sin Asignar",
                     observaciones: creado.observaciones || "Sin observaciones",
