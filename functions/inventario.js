@@ -366,6 +366,100 @@ router.post("/inventarioStatus", async (req, res) => {
     }
 });
 
+//METODO PARA MODIFICAR
+// MÉTODO PARA MODIFICAR INVENTARIO
+router.put("/inventario/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+        const {
+            numeroExpediente,
+            asunto,
+            status,
+            numeroFojas,
+            inmueble,
+            ubicacion,
+            codigoSubserie,
+            nombreSerie,
+            valorDocumental,
+            aniosTramite,
+            aniosConcentracion,
+            soporteDocumental,
+            tradicionDocumental,
+            condicionesAcceso,
+            aniosReserva,
+            subseries // Agregar subseries aquí
+        } = req.body;
+
+        // Validar datos requeridos
+        if (!numeroExpediente || !asunto || !numeroFojas || !inmueble || !ubicacion || !codigoSubserie ||
+            !nombreSerie || !valorDocumental || !aniosTramite || !aniosConcentracion ||
+            !soporteDocumental || !tradicionDocumental || !condicionesAcceso || !aniosReserva) {
+            return res.status(400).json({ error: "Debes proporcionar los campos requeridos." });
+        }
+
+        // Referencia al documento del inventario
+        const serieRef = db.collection("inventario").doc(id);
+        const serieDoc = await serieRef.get();
+
+        if (!serieDoc.exists) {
+            return res.status(404).json({ error: "Expediente del inventario no encontrado" });
+        }
+
+        // Construir objeto con datos actualizados
+        const dataActualizada = {
+            numeroExpediente,
+            asunto,
+            status, // Se actualiza el status completo
+            numeroFojas,
+            inmueble,
+            ubicacion,
+            codigoSubserie,
+            nombreSerie,
+            valorDocumental,
+            aniosTramite,
+            aniosConcentracion,
+            soporteDocumental,
+            tradicionDocumental,
+            condicionesAcceso,
+            aniosReserva
+        };
+
+        // Actualizar la serie en Firestore
+        await serieRef.update(dataActualizada);
+
+        // Si se proporcionan subseries, actualizarlas
+        if (subseries && Array.isArray(subseries)) {
+            const subseriesRef = serieRef.collection("subseries");
+
+            // Eliminar todas las subseries existentes
+            const subseriesSnapshot = await subseriesRef.get();
+            const batch = db.batch();
+            subseriesSnapshot.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+            await batch.commit();
+
+            // Agregar las nuevas subseries
+            for (const sub of subseries) {
+                if (sub.codigo && sub.nombre) {
+                    await subseriesRef.doc(sub.codigo).set({
+                        nombre: sub.nombre
+                    });
+                }
+            }
+        }
+
+        return res.status(200).json({
+            message: "Serie y subseries actualizadas con éxito",
+            serieId: id,
+            subseriesActualizadas: subseries || []
+        });
+
+    } catch (error) {
+        console.error("Error al actualizar la serie y subseries:", error);
+        return res.status(500).json({ error: "Error interno del servidor" });
+    }
+});
 
 
 module.exports = router;
