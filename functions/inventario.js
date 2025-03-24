@@ -340,7 +340,7 @@ router.post("/inventarioStatus", async (req, res) => {
                     fecha: creado.fecha,
                     hora: creado.hora || new Date().toLocaleTimeString(),
                     areaCreado: creado.areaCreado,
-                    areaTurnado: creado.areaTurnado || "Sin Asignar",
+                    areaTurnado: creado.areaTurnado,
                     observaciones: creado.observaciones || "Sin observaciones",
                     usuario: creado.usuario || "Administrador"
                 },
@@ -371,6 +371,13 @@ router.post("/inventarioStatus", async (req, res) => {
 router.put("/inventario/:id", async (req, res) => {
     try {
         const { id } = req.params;
+        console.log("Datos recibidos en la petición PUT:", JSON.stringify(req.body, null, 2));
+
+        // Verificar si req.body está vacío
+        if (!req.body || Object.keys(req.body).length === 0) {
+            return res.status(400).json({ error: "No se recibieron datos para actualizar." });
+        }
+
         const {
             numeroExpediente,
             asunto,
@@ -386,8 +393,7 @@ router.put("/inventario/:id", async (req, res) => {
             soporteDocumental,
             tradicionDocumental,
             condicionesAcceso,
-            aniosReserva,
-            subseries // Agregar subseries aquí
+            aniosReserva
         } = req.body;
 
         // Validar datos requeridos
@@ -409,7 +415,7 @@ router.put("/inventario/:id", async (req, res) => {
         const dataActualizada = {
             numeroExpediente,
             asunto,
-            status, // Se actualiza el status completo
+            status,
             numeroFojas,
             inmueble,
             ubicacion,
@@ -427,39 +433,17 @@ router.put("/inventario/:id", async (req, res) => {
         // Actualizar la serie en Firestore
         await serieRef.update(dataActualizada);
 
-        // Si se proporcionan subseries, actualizarlas
-        if (subseries && Array.isArray(subseries)) {
-            const subseriesRef = serieRef.collection("subseries");
-
-            // Eliminar todas las subseries existentes
-            const subseriesSnapshot = await subseriesRef.get();
-            const batch = db.batch();
-            subseriesSnapshot.forEach(doc => {
-                batch.delete(doc.ref);
-            });
-            await batch.commit();
-
-            // Agregar las nuevas subseries
-            for (const sub of subseries) {
-                if (sub.codigo && sub.nombre) {
-                    await subseriesRef.doc(sub.codigo).set({
-                        nombre: sub.nombre
-                    });
-                }
-            }
-        }
-
         return res.status(200).json({
-            message: "Serie y subseries actualizadas con éxito",
-            serieId: id,
-            subseriesActualizadas: subseries || []
+            message: "Expediente actualizado con éxito",
+            serieId: id
         });
 
     } catch (error) {
-        console.error("Error al actualizar la serie y subseries:", error);
+        console.error("Error al actualizar el expediente:", error);
         return res.status(500).json({ error: "Error interno del servidor" });
     }
 });
+
 
 
 module.exports = router;
