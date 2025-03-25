@@ -273,6 +273,7 @@ router.post("/inventarioStatus", async (req, res) => {
         const {
             numeroExpediente,
             asunto,
+            dependencias,
             numeroFojas,
             soporteDocumental,
             condicionesAcceso,
@@ -292,6 +293,7 @@ router.post("/inventarioStatus", async (req, res) => {
         if (
             !numeroExpediente || typeof numeroExpediente !== "string" || numeroExpediente.trim() === "" ||
             !asunto || typeof asunto !== "string" || asunto.trim() === "" ||
+            !dependencias || typeof dependencias !== "string" || dependencias.trim() === "" ||
             !numeroFojas || typeof numeroFojas !== "string" || numeroFojas.trim() === "" ||
             !soporteDocumental || typeof soporteDocumental !== "string" || soporteDocumental.trim() === "" ||
             !condicionesAcceso || typeof condicionesAcceso !== "string" || condicionesAcceso.trim() === "" ||
@@ -318,6 +320,7 @@ router.post("/inventarioStatus", async (req, res) => {
         await serieRef.set({
             numeroExpediente,
             asunto,
+            dependencias,
             numeroFojas,
             soporteDocumental,
             condicionesAcceso,
@@ -377,6 +380,7 @@ router.put("/inventario/:id", async (req, res) => {
         const {
             numeroExpediente,
             asunto,
+            dependencias,
             status,
             numeroFojas,
             inmueble,
@@ -411,6 +415,7 @@ router.put("/inventario/:id", async (req, res) => {
         const dataActualizada = {
             numeroExpediente,
             asunto,
+            dependencias,
             status,
             numeroFojas,
             inmueble,
