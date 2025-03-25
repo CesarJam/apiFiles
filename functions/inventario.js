@@ -312,11 +312,7 @@ router.post("/inventarioStatus", async (req, res) => {
         const statusData = status && typeof status === "object" ? status : {};
         const { creado = {}, tramite = {}, concluido = {} } = statusData;
 
-        // Validar "creado"
-        if (!creado.fecha || !Array.isArray(creado.areaTurnado)) {
-            return res.status(400).json({ error: "El estado 'recibido' debe contener una fecha" });
-        }
-
+        
         // Generar un ID automático para el documento en la colección "inventario"
         const serieRef = db.collection("inventario").doc(); // ID generado automáticamente
         await serieRef.set({
