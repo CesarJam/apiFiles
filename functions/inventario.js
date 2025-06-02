@@ -7,6 +7,7 @@ const { db } = require("./firebaseConfig");
  */
 // Ruta para registrar en el inventario
 // Ruta para registrar en el inventario con ID automático
+/*
 router.post("/inventario", async (req, res) => {
     try {
         console.log("Cuerpo de la solicitud:", req.body);
@@ -67,7 +68,150 @@ router.post("/inventario", async (req, res) => {
         console.error("Error al registrar el inventario:", error);
         return res.status(500).json({ error: "Error interno del servidor" });
     }
+});*/
+// MÉTODO POST ACTUALIZADO 2025/06/02 PARA REGISTRAR INVENTARIO ok
+router.post("/inventario", async (req, res) => {
+    try {
+        const {
+            numeroExpediente,
+            asunto,
+            listaDeDependencias,
+            numeroFojas,
+            soporteDocumental,
+            condicionesAcceso,
+            aniosReserva,
+            tradicionDocumental,
+            inmueble,
+            ubicacion,
+            subserie,
+            status
+        } = req.body;
+
+        if (
+            !numeroExpediente || !asunto || !listaDeDependencias || !Array.isArray(listaDeDependencias) ||
+            !numeroFojas || !soporteDocumental || !condicionesAcceso || !aniosReserva ||
+            !tradicionDocumental || !inmueble || !ubicacion || !subserie || !status
+        ) {
+            return res.status(400).json({ error: "Faltan campos obligatorios o mal formato." });
+        }
+
+        const {
+            codigoSubserie,
+            nombreSubserie,
+            valorDocumental,
+            aniosTramite,
+            aniosConcentracion
+        } = subserie;
+
+        const {
+            registro,
+            tramite,
+            concluido
+        } = status;
+
+        // Obtener el año desde fechaRegistro
+        const anioRegistro = parseInt(registro.fechaRegistro?.split("-")[0]);
+
+        if (!registro || !registro.fechaRegistro || isNaN(anioRegistro)) {
+            return res.status(400).json({ error: "El campo fechaRegistro de status.registro es obligatorio y debe tener formato AAAA-MM-DD." });
+        }
+
+        const docRef = db.collection("inventario").doc(); // ID generado automáticamente
+
+        await docRef.set({
+            numeroExpediente,
+            asunto,
+            listaDeDependencias,
+            numeroFojas,
+            soporteDocumental,
+            condicionesAcceso,
+            aniosReserva,
+            tradicionDocumental,
+            inmueble,
+            ubicacion,
+            anioRegistro, // Campo adicional para consultas por año
+            subserie: {
+                codigoSubserie,
+                nombreSubserie,
+                valorDocumental,
+                aniosTramite,
+                aniosConcentracion
+            },
+            status: {
+                registro: {
+                    tipo: registro.tipo || "enviado",
+                    areaCreado: registro.areaCreado || "Sin asignar",
+                    fechaRegistro: registro.fechaRegistro,
+                    horaRegistro: registro.horaRegistro || new Date().toLocaleTimeString(),
+                    areaTurnado: registro.areaTurnado || [],
+                    observacionesRegistro: registro.observacionesRegistro || "Sin observaciones",
+                    usuario: registro.usuario || "Administrador"
+                },
+                tramite: {
+                    fechaTramite: tramite?.fechaTramite || "AAAA-MM-DD",
+                    horaTramite: tramite?.horaTramite || "Sin asignar",
+                    observacionesTramite: tramite?.observacionesTramite || "Sin observaciones",
+                    usuario: tramite?.usuario || "Administrador"
+                },
+                concluido: {
+                    fechaConcluido: concluido?.fechaConcluido || "AAAA-MM-DD",
+                    horaConcluido: concluido?.horaConcluido || "Sin asignar",
+                    observacionesConcluido: concluido?.observacionesConcluido || "Sin observaciones",
+                    usuario: concluido?.usuario || "Administrador"
+                }
+            }
+        });
+
+        return res.status(201).json({ message: "Inventario registrado con éxito", id: docRef.id });
+
+    } catch (error) {
+        console.error("Error al registrar el inventario:", error);
+        return res.status(500).json({ error: "Error interno del servidor" });
+    }
 });
+
+
+// Consultar inventario por fechaRegistrado y areaRegistrado
+router.get("/consultaInventario/anio/:anio/codigoSeccion/:codigoSeccion", async (req, res) => {
+    try {
+        const { anio, codigoSeccion } = req.params;
+
+        if (!anio || isNaN(anio)) {
+            return res.status(400).json({ error: "El año es obligatorio y debe ser numérico." });
+        }
+
+        if (!codigoSeccion) {
+            return res.status(400).json({ error: "El codigoSeccion es obligatorio." });
+        }
+
+        const inventarioRef = db.collection("inventario");
+
+        const snapshot = await inventarioRef
+            .where("anioRegistro", "==", parseInt(anio))
+            .where("status.registro.areaCreado", "==", codigoSeccion)
+            .get();
+
+        if (snapshot.empty) {
+            return res.status(404).json({ 
+                message: `--No hay registros en el inventario para el año ${anio} y el área ${codigoSeccion}.` 
+            });
+        }
+
+        const inventarios = [];
+        snapshot.forEach(doc => {
+            inventarios.push({ id: doc.id, ...doc.data() });
+        });
+
+        return res.status(200).json(inventarios);
+    } catch (error) {
+        console.error("Error al obtener el inventario:", error);
+        return res.status(500).json({ error: "Error interno del servidor" });
+    }
+});
+
+
+
+////////////////////////////////////////////////
 
 //consultar inventario 
 router.get("/inventario", async (req, res) => {
@@ -151,7 +295,8 @@ router.get("/inventario/anio/:anio/codigoSeccion/:codigoSeccion", async (req, re
     }
 });
 
-// Consultar inventario por fechaRecibido y areaRecibido
+
+/*
 router.get("/consultaInventario/anio/:anio/codigoSeccion/:codigoSeccion", async (req, res) => {
     try {
         const { anio, codigoSeccion } = req.params;
@@ -193,7 +338,7 @@ router.get("/consultaInventario/anio/:anio/codigoSeccion/:codigoSeccion", async 
         console.error("Error al obtener el inventario:", error);
         return res.status(500).json({ error: "Error interno del servidor" });
     }
-});
+});*/
 
 // Consultar inventario por año y área turnada
 router.get("/consultaInventarioTurnado/anio/:anio/areaTurnado/:areaTurnado", async (req, res) => {
@@ -366,95 +511,6 @@ router.post("/inventarioStatus", async (req, res) => {
     }
 });
 */
-router.post("/inventarioStatus", async (req, res) => {
-  try {
-    console.log("Cuerpo de la solicitud:", req.body);
-
-    const {
-      numeroExpediente,
-      asunto,
-      listaDeDependencias,
-      numeroFojas,
-      soporteDocumental,
-      condicionesAcceso,
-      aniosReserva,
-      tradicionDocumental,
-      inmueble,
-      ubicacion,
-      subserie,
-      status
-    } = req.body;
-
-    // Validar campos obligatorios básicos
-    if (
-      !numeroExpediente || !asunto || !Array.isArray(listaDeDependencias) || listaDeDependencias.length === 0 ||
-      !numeroFojas || !soporteDocumental || !condicionesAcceso || !aniosReserva ||
-      !tradicionDocumental || !inmueble || !ubicacion ||
-      !subserie || typeof subserie !== "object" ||
-      !subserie.codigoSubserie || !subserie.nombreSubserie || !subserie.valorDocumental ||
-      !subserie.aniosTramite || !subserie.aniosConcentracion
-    ) {
-      return res.status(400).json({ error: "Todos los campos obligatorios deben estar completos y correctos." });
-    }
-
-    // Validar status
-    const statusData = status && typeof status === "object" ? status : {};
-    const registro = statusData.registro || {};
-    const tramite = statusData.tramite || {};
-    const concluido = statusData.concluido || {};
-
-    const docRef = db.collection("inventario").doc();
-
-    await docRef.set({
-      numeroExpediente,
-      asunto,
-      listaDeDependencias,
-      status: {
-        registro: {
-          tipo: registro.tipo || "Desconocido",
-          areaCreado: registro.areaCreado || "Sin asignar",
-          fechaRegistro: registro.fechaRegistro || new Date().toISOString().split("T")[0],
-          horaRegistro: registro.horaRegistro || new Date().toLocaleTimeString(),
-          areaTurnado: Array.isArray(registro.areaTurnado) ? registro.areaTurnado : [],
-          observacionesRegistro: registro.observacionesRegistro || "Sin observaciones",
-          usuario: registro.usuario || "Administrador"
-        },
-        tramite: {
-          fechaTramite: tramite.fechaTramite || "AAAA-MM-DD",
-          horaTramite: tramite.horaTramite || "Sin asignar",
-          observacionesTramite: tramite.observacionesTramite || "Sin observaciones",
-          usuario: tramite.usuario || "Administrador"
-        },
-        concluido: {
-          fechaConcluido: concluido.fechaConcluido || "AAAA-MM-DD",
-          horaConcluido: concluido.horaConcluido || "Sin asignar",
-          observacionesConcluido: concluido.observacionesConcluido || "Sin observaciones",
-          usuario: concluido.usuario || "Administrador"
-        }
-      },
-      numeroFojas,
-      soporteDocumental,
-      condicionesAcceso,
-      aniosReserva,
-      tradicionDocumental,
-      inmueble,
-      ubicacion,
-      subserie: {
-        codigoSubserie: subserie.codigoSubserie,
-        nombreSubserie: subserie.nombreSubserie,
-        valorDocumental: subserie.valorDocumental,
-        aniosTramite: subserie.aniosTramite,
-        aniosConcentracion: subserie.aniosConcentracion
-      }
-    });
-
-    return res.status(201).json({ message: "Inventario registrado con éxito", id: docRef.id });
-
-  } catch (error) {
-    console.error("Error al registrar el inventario:", error);
-    return res.status(500).json({ error: "Error interno del servidor" });
-  }
-});
 
 
 
