@@ -266,6 +266,7 @@ router.delete("/inventario/:numeroExpediente", async (req, res) => {
 });
 
 // MÉTODO DE PRUEBA POST
+/*
 router.post("/inventarioStatus", async (req, res) => {
     try {
         console.log("Cuerpo de la solicitud:", req.body);
@@ -364,6 +365,98 @@ router.post("/inventarioStatus", async (req, res) => {
         return res.status(500).json({ error: "Error interno del servidor" });
     }
 });
+*/
+router.post("/inventarioStatus", async (req, res) => {
+  try {
+    console.log("Cuerpo de la solicitud:", req.body);
+
+    const {
+      numeroExpediente,
+      asunto,
+      listaDeDependencias,
+      numeroFojas,
+      soporteDocumental,
+      condicionesAcceso,
+      aniosReserva,
+      tradicionDocumental,
+      inmueble,
+      ubicacion,
+      subserie,
+      status
+    } = req.body;
+
+    // Validar campos obligatorios básicos
+    if (
+      !numeroExpediente || !asunto || !Array.isArray(listaDeDependencias) || listaDeDependencias.length === 0 ||
+      !numeroFojas || !soporteDocumental || !condicionesAcceso || !aniosReserva ||
+      !tradicionDocumental || !inmueble || !ubicacion ||
+      !subserie || typeof subserie !== "object" ||
+      !subserie.codigoSubserie || !subserie.nombreSubserie || !subserie.valorDocumental ||
+      !subserie.aniosTramite || !subserie.aniosConcentracion
+    ) {
+      return res.status(400).json({ error: "Todos los campos obligatorios deben estar completos y correctos." });
+    }
+
+    // Validar status
+    const statusData = status && typeof status === "object" ? status : {};
+    const registro = statusData.registro || {};
+    const tramite = statusData.tramite || {};
+    const concluido = statusData.concluido || {};
+
+    const docRef = db.collection("inventario").doc();
+
+    await docRef.set({
+      numeroExpediente,
+      asunto,
+      listaDeDependencias,
+      status: {
+        registro: {
+          tipo: registro.tipo || "Desconocido",
+          areaCreado: registro.areaCreado || "Sin asignar",
+          fechaRegistro: registro.fechaRegistro || new Date().toISOString().split("T")[0],
+          horaRegistro: registro.horaRegistro || new Date().toLocaleTimeString(),
+          areaTurnado: Array.isArray(registro.areaTurnado) ? registro.areaTurnado : [],
+          observacionesRegistro: registro.observacionesRegistro || "Sin observaciones",
+          usuario: registro.usuario || "Administrador"
+        },
+        tramite: {
+          fechaTramite: tramite.fechaTramite || "AAAA-MM-DD",
+          horaTramite: tramite.horaTramite || "Sin asignar",
+          observacionesTramite: tramite.observacionesTramite || "Sin observaciones",
+          usuario: tramite.usuario || "Administrador"
+        },
+        concluido: {
+          fechaConcluido: concluido.fechaConcluido || "AAAA-MM-DD",
+          horaConcluido: concluido.horaConcluido || "Sin asignar",
+          observacionesConcluido: concluido.observacionesConcluido || "Sin observaciones",
+          usuario: concluido.usuario || "Administrador"
+        }
+      },
+      numeroFojas,
+      soporteDocumental,
+      condicionesAcceso,
+      aniosReserva,
+      tradicionDocumental,
+      inmueble,
+      ubicacion,
+      subserie: {
+        codigoSubserie: subserie.codigoSubserie,
+        nombreSubserie: subserie.nombreSubserie,
+        valorDocumental: subserie.valorDocumental,
+        aniosTramite: subserie.aniosTramite,
+        aniosConcentracion: subserie.aniosConcentracion
+      }
+    });
+
+    return res.status(201).json({ message: "Inventario registrado con éxito", id: docRef.id });
+
+  } catch (error) {
+    console.error("Error al registrar el inventario:", error);
+    return res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
+
 
 //METODO PARA MODIFICAR
 // MÉTODO PARA MODIFICAR INVENTARIO
