@@ -70,6 +70,7 @@ router.post("/inventario", async (req, res) => {
     }
 });*/
 // MÉTODO POST ACTUALIZADO 2025/06/02 PARA REGISTRAR INVENTARIO ok
+/*
 router.post("/inventario", async (req, res) => {
     try {
         const {
@@ -168,7 +169,151 @@ router.post("/inventario", async (req, res) => {
         console.error("Error al registrar el inventario:", error);
         return res.status(500).json({ error: "Error interno del servidor" });
     }
+});*/
+router.post("/inventario", async (req, res) => {
+    try {
+        const {
+            numeroExpediente,
+            asunto,
+            listaDeDependencias,
+            numeroFojas,
+            soporteDocumental,
+            condicionesAcceso,
+            aniosReserva,
+            tradicionDocumental,
+            inmueble,
+            ubicacion,
+            subserie,
+            registro // Solo se requiere el movimiento inicial
+        } = req.body;
+
+        // Validación básica
+        if (
+            !numeroExpediente || !asunto || !Array.isArray(listaDeDependencias) || listaDeDependencias.length === 0 ||
+            !numeroFojas || !soporteDocumental || !condicionesAcceso || !aniosReserva ||
+            !tradicionDocumental || !inmueble || !ubicacion || !subserie || !registro
+        ) {
+            return res.status(400).json({ error: "Faltan campos obligatorios o mal formato." });
+        }
+
+        const {
+            codigoSubserie,
+            nombreSubserie,
+            valorDocumental,
+            aniosTramite,
+            aniosConcentracion
+        } = subserie;
+
+        const {
+            tipo = "registro",
+            areaOrigen = null,
+            areaDestino,
+            fecha,
+            hora = new Date().toLocaleTimeString(),
+            observaciones = "Sin observaciones",
+            usuario = "Administrador"
+        } = registro;
+
+        const anioRegistro = parseInt(fecha?.split("-")[0]);
+        if (!fecha || isNaN(anioRegistro)) {
+            return res.status(400).json({ error: "El campo 'fecha' de registro es obligatorio y debe tener formato AAAA-MM-DD." });
+        }
+
+        const docRef = db.collection("inventario").doc(); // ID automático
+
+        await docRef.set({
+            numeroExpediente,
+            asunto,
+            listaDeDependencias,
+            anioRegistro,
+            datosGenerales: {
+                numeroFojas,
+                soporteDocumental,
+                condicionesAcceso,
+                aniosReserva,
+                tradicionDocumental,
+                inmueble,
+                ubicacion
+            },
+            subserie: {
+                codigoSubserie,
+                nombreSubserie,
+                valorDocumental,
+                aniosTramite,
+                aniosConcentracion
+            },
+            historialMovimientos: [
+                {
+                    tipo,
+                    areaOrigen,
+                    areaDestino: Array.isArray(areaDestino) ? areaDestino : [areaDestino],
+                    fecha,
+                    hora,
+                    observaciones,
+                    usuario
+                }
+            ]
+        });
+
+        return res.status(201).json({
+            message: "Inventario registrado con éxito",
+            id: docRef.id
+        });
+
+    } catch (error) {
+        console.error("Error al registrar el inventario:", error);
+        return res.status(500).json({ error: "Error interno del servidor" });
+    }
 });
+
+//endPoint de registro de movimientos
+router.post("/inventario/:id/movimiento", async (req, res) => {
+    try {
+        const { id } = req.params;
+        const {
+            tipo,             // "tramite", "concluido", "canalizacion", etc.
+            areaOrigen,
+            areaDestino,      // Puede ser un string o arreglo
+            fecha,
+            hora,
+            observaciones,
+            usuario
+        } = req.body;
+
+        // Validación mínima
+        if (!tipo || !fecha || !usuario || !areaDestino) {
+            return res.status(400).json({ error: "Campos obligatorios faltantes (tipo, fecha, usuario, areaDestino)." });
+        }
+
+        const movimiento = {
+            tipo,
+            areaOrigen: areaOrigen || null,
+            areaDestino: Array.isArray(areaDestino) ? areaDestino : [areaDestino],
+            fecha,
+            hora: hora || new Date().toLocaleTimeString(),
+            observaciones: observaciones || "Sin observaciones",
+            usuario
+        };
+
+        const docRef = db.collection("inventario").doc(id);
+        const docSnap = await docRef.get();
+
+        if (!docSnap.exists) {
+            return res.status(404).json({ error: "No se encontró el expediente con ese ID." });
+        }
+
+        await docRef.update({
+            historialMovimientos: admin.firestore.FieldValue.arrayUnion(movimiento)
+        });
+
+        return res.status(200).json({ message: "Movimiento agregado con éxito." });
+
+    } catch (error) {
+        console.error("Error al agregar movimiento:", error);
+        return res.status(500).json({ error: "Error interno del servidor" });
+    }
+});
+
 
 
 // Consultar inventario por fechaRegistrado y areaRegistrado
