@@ -1,6 +1,6 @@
-const express = require("express"); 
+const express = require("express");
 const router = express.Router();
-const { db } = require("./firebaseConfig");
+const { db, FieldValue } = require("./firebaseConfig");
 
 /**
  * Inventarios
@@ -196,6 +196,7 @@ router.post("/inventario", async (req, res) => {
             return res.status(400).json({ error: "Faltan campos obligatorios o mal formato." });
         }
 
+
         const {
             codigoSubserie,
             nombreSubserie,
@@ -206,13 +207,14 @@ router.post("/inventario", async (req, res) => {
 
         const {
             tipo = "registro",
-            areaOrigen = null,
+            areaOrigen,
             areaDestino,
             fecha,
-            hora = new Date().toLocaleTimeString(),
+            hora,
             observaciones = "Sin observaciones",
             usuario = "Administrador"
         } = registro;
+
 
         const anioRegistro = parseInt(fecha?.split("-")[0]);
         if (!fecha || isNaN(anioRegistro)) {
@@ -266,35 +268,45 @@ router.post("/inventario", async (req, res) => {
     }
 });
 
+
 //endPoint de registro de movimientos
 router.post("/inventario/:id/movimiento", async (req, res) => {
     try {
+
         const { id } = req.params;
+        console.log("id es-->" + id);
         const {
-            tipo,             // "tramite", "concluido", "canalizacion", etc.
-            areaOrigen,
-            areaDestino,      // Puede ser un string o arreglo
+            tipo,             // "tramite", "concluido", etc.
+            areaCanalizado,
             fecha,
             hora,
             observaciones,
             usuario
         } = req.body;
 
-        // Validación mínima
-        if (!tipo || !fecha || !usuario || !areaDestino) {
-            return res.status(400).json({ error: "Campos obligatorios faltantes (tipo, fecha, usuario, areaDestino)." });
+        // Validación básica
+        if (!tipo || !areaCanalizado || !fecha || !usuario) {
+            return res.status(400).json({ error: "Campos obligatorios faltantes (tipo, areaCanalizado fecha, usuario)." });
         }
 
+
+
+        // Crear objeto de movimiento
         const movimiento = {
             tipo,
-            areaOrigen: areaOrigen || null,
-            areaDestino: Array.isArray(areaDestino) ? areaDestino : [areaDestino],
+            areaCanalizado,
             fecha,
-            hora: hora || new Date().toLocaleTimeString(),
+            hora,
             observaciones: observaciones || "Sin observaciones",
             usuario
         };
 
+        const tiposValidos = ["tramite", "concluido"];
+        if (!tiposValidos.includes(tipo)) {
+        return res.status(400).json({ error: "Tipo de movimiento inválido." });
+        }
+
+        // Buscar el expediente
         const docRef = db.collection("inventario").doc(id);
         const docSnap = await docRef.get();
 
@@ -302,21 +314,27 @@ router.post("/inventario/:id/movimiento", async (req, res) => {
             return res.status(404).json({ error: "No se encontró el expediente con ese ID." });
         }
 
+        console.log("FieldValue es:", FieldValue);
+        // Agregar el movimiento al historial
         await docRef.update({
-            historialMovimientos: admin.firestore.FieldValue.arrayUnion(movimiento)
+            historialMovimientos: FieldValue.arrayUnion(movimiento)
         });
+
+        //
 
         return res.status(200).json({ message: "Movimiento agregado con éxito." });
 
     } catch (error) {
         console.error("Error al agregar movimiento:", error);
-        return res.status(500).json({ error: "Error interno del servidor" });
+        return res.status(500).json({ error: "Error interno del servidor11" });
     }
 });
 
 
 
+
 // Consultar inventario por fechaRegistrado y areaRegistrado
+/*
 router.get("/consultaInventario/anio/:anio/codigoSeccion/:codigoSeccion", async (req, res) => {
     try {
         const { anio, codigoSeccion } = req.params;
@@ -337,8 +355,8 @@ router.get("/consultaInventario/anio/:anio/codigoSeccion/:codigoSeccion", async 
             .get();
 
         if (snapshot.empty) {
-            return res.status(404).json({ 
-                message: `--No hay registros en el inventario para el año ${anio} y el área ${codigoSeccion}.` 
+            return res.status(404).json({
+                message: `--No hay registros en el inventario para el año ${anio} y el área ${codigoSeccion}.`
             });
         }
 
@@ -352,7 +370,55 @@ router.get("/consultaInventario/anio/:anio/codigoSeccion/:codigoSeccion", async 
         console.error("Error al obtener el inventario:", error);
         return res.status(500).json({ error: "Error interno del servidor" });
     }
+});*/
+router.get("/consultaInventario/anio/:anio/areaOrigen/:codigoSeccion", async (req, res) => {
+    try {
+        const { anio, codigoSeccion } = req.params;
+
+        if (!anio || isNaN(anio)) {
+            return res.status(400).json({ error: "El año es obligatorio y debe ser numérico." });
+        }
+
+        if (!codigoSeccion) {
+            return res.status(400).json({ error: "El área de origen es obligatoria." });
+        }
+
+        const snapshot = await db
+            .collection("inventario")
+            .where("anioRegistro", "==", parseInt(anio))
+            .get();
+
+        if (snapshot.empty) {
+            return res.status(404).json({
+                message: `No hay registros en el inventario para el año ${anio}.`
+            });
+        }
+
+        const resultados = [];
+
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            const primerMovimiento = data.historialMovimientos?.[0];
+
+            if (primerMovimiento?.areaOrigen === codigoSeccion) {
+                resultados.push({ id: doc.id, ...data });
+            }
+        });
+
+        if (resultados.length === 0) {
+            return res.status(404).json({
+                message: `No hay registros en el inventario para el año ${anio} con área de origen ${codigoSeccion}.`
+            });
+        }
+
+        return res.status(200).json(resultados);
+
+    } catch (error) {
+        console.error("Error al consultar inventario:", error);
+        return res.status(500).json({ error: "Error interno del servidor" });
+    }
 });
+
 
 
 
@@ -423,8 +489,8 @@ router.get("/inventario/anio/:anio/codigoSeccion/:codigoSeccion", async (req, re
             .get();
 
         if (snapshot.empty) {
-            return res.status(404).json({ 
-                message: `No hay registros en el inventario para el año ${anio} y codigoSeccion ${codigoSeccion}.` 
+            return res.status(404).json({
+                message: `No hay registros en el inventario para el año ${anio} y codigoSeccion ${codigoSeccion}.`
             });
         }
 
@@ -513,8 +579,8 @@ router.get("/consultaInventarioTurnado/anio/:anio/areaTurnado/:areaTurnado", asy
 
         // Verificamos si hay resultados
         if (snapshot.empty) {
-            return res.status(404).json({ 
-                message: `No hay registros en el inventario para el año ${anio} y el área turnada ${areaTurnado}.` 
+            return res.status(404).json({
+                message: `No hay registros en el inventario para el año ${anio} y el área turnada ${areaTurnado}.`
             });
         }
 

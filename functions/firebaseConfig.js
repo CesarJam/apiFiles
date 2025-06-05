@@ -1,4 +1,5 @@
 const admin = require("firebase-admin");
+const { FieldValue } = require("firebase-admin/firestore");
 var serviceAccount = require("./permisos.json");
 
 admin.initializeApp({
@@ -8,4 +9,9 @@ admin.initializeApp({
 const db = admin.firestore();
 db.settings({ ignoreUndefinedProperties: true });
 
-module.exports = { admin, db };
+// Aquí está la línea clave:
+//const FieldValue = admin.firestore.FieldValue;
+// 💡 ESTA es la forma correcta y segura de acceder a FieldValue
+//const FieldValue = require("firebase-admin").firestore.FieldValue;
+
+module.exports = { admin, db, FieldValue };
