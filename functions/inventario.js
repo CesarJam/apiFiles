@@ -5,171 +5,9 @@ const { db, FieldValue } = require("./firebaseConfig");
 /**
  * Inventarios
  */
-// Ruta para registrar en el inventario
-// Ruta para registrar en el inventario con ID automático
-/*
-router.post("/inventario", async (req, res) => {
-    try {
-        console.log("Cuerpo de la solicitud:", req.body);
-        const {
-            numeroExpediente,
-            asunto,
-            tipo,
-            numeroFojas,
-            soporteDocumental,
-            aniosTramite,
-            aniosConcentracion,
-            condicionesAcceso,
-            aniosReserva,
-            tradicionDocumental,
-            fechaApertura,
-            fechaCierre,
-            inmueble,
-            ubicacion,
-            codigoSerie,
-            anio,
-            codigoSeccion
-        } = req.body;
 
-        // Validar campos obligatorios
-        if (
-            !numeroExpediente || typeof numeroExpediente !== "string" || numeroExpediente.trim() === "" ||
-            !codigoSerie || typeof codigoSerie !== "string" || codigoSerie.trim() === "" ||
-            !asunto || typeof asunto !== "string" || asunto.trim() === "" ||
-            !codigoSeccion || typeof codigoSeccion !== "string" || codigoSeccion.trim() === "" 
-        ) {
-            return res.status(400).json({ error: "Número de expediente, código de serie, asunto y codigoSeccion son obligatorios." });
-        }
-
-        // Generar un ID automático para el documento en la colección "inventario"
-        const serieRef = db.collection("inventario").doc(); // ID generado automáticamente
-        await serieRef.set({
-            numeroExpediente,
-            asunto,
-            tipo,
-            numeroFojas,
-            soporteDocumental,
-            aniosTramite,
-            aniosConcentracion,
-            condicionesAcceso,
-            aniosReserva,
-            tradicionDocumental,
-            fechaApertura,
-            fechaCierre,
-            inmueble,
-            ubicacion,
-            codigoSerie,
-            anio,
-            codigoSeccion
-        });
-
-        return res.status(201).json({ message: "Inventario registrado con éxito", id: serieRef.id });
-    } catch (error) {
-        console.error("Error al registrar el inventario:", error);
-        return res.status(500).json({ error: "Error interno del servidor" });
-    }
-});*/
 // MÉTODO POST ACTUALIZADO 2025/06/02 PARA REGISTRAR INVENTARIO ok
-/*
-router.post("/inventario", async (req, res) => {
-    try {
-        const {
-            numeroExpediente,
-            asunto,
-            listaDeDependencias,
-            numeroFojas,
-            soporteDocumental,
-            condicionesAcceso,
-            aniosReserva,
-            tradicionDocumental,
-            inmueble,
-            ubicacion,
-            subserie,
-            status
-        } = req.body;
 
-        if (
-            !numeroExpediente || !asunto || !listaDeDependencias || !Array.isArray(listaDeDependencias) ||
-            !numeroFojas || !soporteDocumental || !condicionesAcceso || !aniosReserva ||
-            !tradicionDocumental || !inmueble || !ubicacion || !subserie || !status
-        ) {
-            return res.status(400).json({ error: "Faltan campos obligatorios o mal formato." });
-        }
-
-        const {
-            codigoSubserie,
-            nombreSubserie,
-            valorDocumental,
-            aniosTramite,
-            aniosConcentracion
-        } = subserie;
-
-        const {
-            registro,
-            tramite,
-            concluido
-        } = status;
-
-        // Obtener el año desde fechaRegistro
-        const anioRegistro = parseInt(registro.fechaRegistro?.split("-")[0]);
-
-        if (!registro || !registro.fechaRegistro || isNaN(anioRegistro)) {
-            return res.status(400).json({ error: "El campo fechaRegistro de status.registro es obligatorio y debe tener formato AAAA-MM-DD." });
-        }
-
-        const docRef = db.collection("inventario").doc(); // ID generado automáticamente
-
-        await docRef.set({
-            numeroExpediente,
-            asunto,
-            listaDeDependencias,
-            numeroFojas,
-            soporteDocumental,
-            condicionesAcceso,
-            aniosReserva,
-            tradicionDocumental,
-            inmueble,
-            ubicacion,
-            anioRegistro, // Campo adicional para consultas por año
-            subserie: {
-                codigoSubserie,
-                nombreSubserie,
-                valorDocumental,
-                aniosTramite,
-                aniosConcentracion
-            },
-            status: {
-                registro: {
-                    tipo: registro.tipo || "enviado",
-                    areaCreado: registro.areaCreado || "Sin asignar",
-                    fechaRegistro: registro.fechaRegistro,
-                    horaRegistro: registro.horaRegistro || new Date().toLocaleTimeString(),
-                    areaTurnado: registro.areaTurnado || [],
-                    observacionesRegistro: registro.observacionesRegistro || "Sin observaciones",
-                    usuario: registro.usuario || "Administrador"
-                },
-                tramite: {
-                    fechaTramite: tramite?.fechaTramite || "AAAA-MM-DD",
-                    horaTramite: tramite?.horaTramite || "Sin asignar",
-                    observacionesTramite: tramite?.observacionesTramite || "Sin observaciones",
-                    usuario: tramite?.usuario || "Administrador"
-                },
-                concluido: {
-                    fechaConcluido: concluido?.fechaConcluido || "AAAA-MM-DD",
-                    horaConcluido: concluido?.horaConcluido || "Sin asignar",
-                    observacionesConcluido: concluido?.observacionesConcluido || "Sin observaciones",
-                    usuario: concluido?.usuario || "Administrador"
-                }
-            }
-        });
-
-        return res.status(201).json({ message: "Inventario registrado con éxito", id: docRef.id });
-
-    } catch (error) {
-        console.error("Error al registrar el inventario:", error);
-        return res.status(500).json({ error: "Error interno del servidor" });
-    }
-});*/
 router.post("/inventario", async (req, res) => {
     try {
         const {
@@ -268,7 +106,6 @@ router.post("/inventario", async (req, res) => {
     }
 });
 
-
 //endPoint de registro de movimientos
 router.post("/inventario/:id/movimiento", async (req, res) => {
     try {
@@ -330,47 +167,7 @@ router.post("/inventario/:id/movimiento", async (req, res) => {
     }
 });
 
-
-
-
 // Consultar inventario por fechaRegistrado y areaRegistrado
-/*
-router.get("/consultaInventario/anio/:anio/codigoSeccion/:codigoSeccion", async (req, res) => {
-    try {
-        const { anio, codigoSeccion } = req.params;
-
-        if (!anio || isNaN(anio)) {
-            return res.status(400).json({ error: "El año es obligatorio y debe ser numérico." });
-        }
-
-        if (!codigoSeccion) {
-            return res.status(400).json({ error: "El codigoSeccion es obligatorio." });
-        }
-
-        const inventarioRef = db.collection("inventario");
-
-        const snapshot = await inventarioRef
-            .where("anioRegistro", "==", parseInt(anio))
-            .where("status.registro.areaCreado", "==", codigoSeccion)
-            .get();
-
-        if (snapshot.empty) {
-            return res.status(404).json({
-                message: `--No hay registros en el inventario para el año ${anio} y el área ${codigoSeccion}.`
-            });
-        }
-
-        const inventarios = [];
-        snapshot.forEach(doc => {
-            inventarios.push({ id: doc.id, ...doc.data() });
-        });
-
-        return res.status(200).json(inventarios);
-    } catch (error) {
-        console.error("Error al obtener el inventario:", error);
-        return res.status(500).json({ error: "Error interno del servidor" });
-    }
-});*/
 router.get("/consultaInventario/anio/:anio/areaOrigen/:codigoSeccion", async (req, res) => {
     try {
         const { anio, codigoSeccion } = req.params;
@@ -419,8 +216,60 @@ router.get("/consultaInventario/anio/:anio/areaOrigen/:codigoSeccion", async (re
     }
 });
 
+//consulta de expedientes turnados
+router.get("/consultaTurnados/anio/:anio/areaDestino/:codigoEnviado", async (req, res) => {
+    try {
+        const { anio, codigoEnviado } = req.params;
 
+        if (!anio || isNaN(anio)) {
+            return res.status(400).json({ error: "El año es obligatorio y debe ser numérico." });
+        }
 
+        if (!codigoEnviado) {
+            return res.status(400).json({ error: "El código de área destino es obligatorio." });
+        }
+
+        const snapshot = await db
+            .collection("inventario")
+            .where("anioRegistro", "==", parseInt(anio))
+            .get();
+
+        if (snapshot.empty) {
+            return res.status(404).json({
+                message: `No hay registros en el inventario para el año ${anio}.`
+            });
+        }
+
+        const resultados = [];
+
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            const movimientos = data.historialMovimientos || [];
+
+            // Recorremos todos los movimientos
+            for (const movimiento of movimientos) {
+                if (Array.isArray(movimiento.areaDestino)) {
+                    if (movimiento.areaDestino.includes(codigoEnviado)) {
+                        resultados.push({ id: doc.id, ...data });
+                        break; // Ya encontramos coincidencia, salimos del loop
+                    }
+                }
+            }
+        });
+
+        if (resultados.length === 0) {
+            return res.status(404).json({
+                message: `No hay registros con área destino ${codigoEnviado} en el año ${anio}.`
+            });
+        }
+
+        return res.status(200).json(resultados);
+
+    } catch (error) {
+        console.error("Error al consultar inventario:", error);
+        return res.status(500).json({ error: "Error interno del servidor" });
+    }
+});
 
 ////////////////////////////////////////////////
 
