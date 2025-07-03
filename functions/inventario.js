@@ -6,91 +6,55 @@ const { db, FieldValue } = require("./firebaseConfig");
  * Inventarios
  */
 
-// MÉTODO POST ACTUALIZADO 2025/06/02 PARA REGISTRAR INVENTARIO ok
+// MÉTODO POST ACTUALIZADO 2025/07/02 PARA REGISTRAR INVENTARIO ok
 
 router.post("/inventario", async (req, res) => {
     try {
+        // --- 1. Desestructuración Simplificada ---
+        // Asumimos que el body ya viene con la estructura anidada.
         const {
             numeroExpediente,
             asunto,
+            areaDeRegistro,
             listaDeDependencias,
-            numeroFojas,
-            soporteDocumental,
-            condicionesAcceso,
-            aniosReserva,
-            tradicionDocumental,
-            inmueble,
-            ubicacion,
+            datosGenerales,
             subserie,
-            registro // Solo se requiere el movimiento inicial
+            registro 
         } = req.body;
 
-        // Validación básica
-        if (
-            !numeroExpediente || !asunto || !Array.isArray(listaDeDependencias) || listaDeDependencias.length === 0 ||
-            !numeroFojas || !soporteDocumental || !condicionesAcceso || !aniosReserva ||
-            !tradicionDocumental || !inmueble || !ubicacion || !subserie || !registro
-        ) {
-            return res.status(400).json({ error: "Faltan campos obligatorios o mal formato." });
+        // La validación se puede hacer más específica sobre los objetos.
+        if (!numeroExpediente || !asunto || !datosGenerales || !subserie || !registro || !areaDeRegistro) {
+            return res.status(400).json({ error: "Faltan campos u objetos principales." });
         }
 
+        // --- 2. statusActual se define en el servidor ---
+        const statusActual = "registro";
 
-        const {
-            codigoSubserie,
-            nombreSubserie,
-            valorDocumental,
-            aniosTramite,
-            aniosConcentracion
-        } = subserie;
-
-        const {
-            tipo = "registro",
-            areaOrigen,
-            areaDestino,
-            fecha,
-            hora,
-            observaciones = "Sin observaciones",
-            usuario = "Administrador"
-        } = registro;
-
-
+        const { fecha } = registro;
         const anioRegistro = parseInt(fecha?.split("-")[0]);
         if (!fecha || isNaN(anioRegistro)) {
-            return res.status(400).json({ error: "El campo 'fecha' de registro es obligatorio y debe tener formato AAAA-MM-DD." });
+            return res.status(400).json({ error: "El campo 'fecha' de registro es obligatorio y válido." });
         }
 
-        const docRef = db.collection("inventario").doc(); // ID automático
+        const docRef = db.collection("inventario").doc();
 
+        // El objeto que se guarda en la DB ahora es mucho más directo
         await docRef.set({
             numeroExpediente,
             asunto,
             listaDeDependencias,
             anioRegistro,
-            datosGenerales: {
-                numeroFojas,
-                soporteDocumental,
-                condicionesAcceso,
-                aniosReserva,
-                tradicionDocumental,
-                inmueble,
-                ubicacion
-            },
-            subserie: {
-                codigoSubserie,
-                nombreSubserie,
-                valorDocumental,
-                aniosTramite,
-                aniosConcentracion
-            },
+            statusActual,
+            areaDeRegistro,
+            areasInvolucradas: registro.areaDestino || [],
+            datosGenerales, // Se pasa el objeto directamente
+            subserie,       // Se pasa el objeto directamente
             historialMovimientos: [
                 {
-                    tipo,
-                    areaOrigen,
-                    areaDestino: Array.isArray(areaDestino) ? areaDestino : [areaDestino],
-                    fecha,
-                    hora,
-                    observaciones,
-                    usuario
+                    ...registro, // Usamos spread para copiar todas las propiedades del objeto registro
+                    tipo: "registro", // Nos aseguramos que el tipo sea 'registro'
+                    areaOrigen: areaDeRegistro,
+                    areaDestino: Array.isArray(registro.areaDestino) ? registro.areaDestino : [registro.areaDestino]
                 }
             ]
         });
@@ -106,44 +70,22 @@ router.post("/inventario", async (req, res) => {
     }
 });
 
-//endPoint de registro de movimientos
-router.post("/inventario/:id/movimiento", async (req, res) => {
+/**
+ * Endpoint para añadir un nuevo movimiento a un expediente existente.
+ * Actualiza el historial y el estado actual del documento.
+ */
+// 1. Cambiamos el método a PATCH para una mejor semántica RESTful.
+router.patch("/inventario/:id", async (req, res) => {
     try {
-
         const { id } = req.params;
-        console.log("id es-->" + id);
-        const {
-            tipo,             // "tramite", "concluido", etc.
-            areaCanalizado,
-            fecha,
-            hora,
-            observaciones,
-            usuario
-        } = req.body;
+        const nuevoMovimiento = req.body;
 
-        // Validación básica
-        if (!tipo || !areaCanalizado || !fecha || !usuario) {
-            return res.status(400).json({ error: "Campos obligatorios faltantes (tipo, areaCanalizado fecha, usuario)." });
-        }
-
-
-
-        // Crear objeto de movimiento
-        const movimiento = {
-            tipo,
-            areaCanalizado,
-            fecha,
-            hora,
-            observaciones: observaciones || "Sin observaciones",
-            usuario
-        };
-
+        // 2. Tu validación es buena, la mantenemos.
         const tiposValidos = ["tramite", "concluido"];
-        if (!tiposValidos.includes(tipo)) {
-        return res.status(400).json({ error: "Tipo de movimiento inválido." });
+        if (!nuevoMovimiento.tipo || !tiposValidos.includes(nuevoMovimiento.tipo) || !nuevoMovimiento.areaCanalizado || !nuevoMovimiento.fecha || !nuevoMovimiento.usuario) {
+            return res.status(400).json({ error: "Petición inválida. Faltan campos obligatorios o el tipo es incorrecto." });
         }
 
-        // Buscar el expediente
         const docRef = db.collection("inventario").doc(id);
         const docSnap = await docRef.get();
 
@@ -151,23 +93,76 @@ router.post("/inventario/:id/movimiento", async (req, res) => {
             return res.status(404).json({ error: "No se encontró el expediente con ese ID." });
         }
 
-        console.log("FieldValue es:", FieldValue);
-        // Agregar el movimiento al historial
-        await docRef.update({
-            historialMovimientos: FieldValue.arrayUnion(movimiento)
+        // 3. Preparamos el objeto completo para la actualización.
+        const updatePayload = {
+            // Añade el nuevo objeto al array del historial.
+            historialMovimientos: FieldValue.arrayUnion(nuevoMovimiento),
+            
+            // ¡LA CLAVE! Actualiza el campo principal con el nuevo estado.
+            statusActual: nuevoMovimiento.tipo 
+        };
+
+        // Si el nuevo movimiento tiene un área, la añadimos al array de búsqueda
+        if (nuevoMovimiento.areaCanalizado) {
+            updatePayload.areasInvolucradas = FieldValue.arrayUnion(nuevoMovimiento.areaCanalizado);
+        }
+
+        // 4. Actualizamos AMBOS campos en una sola operación atómica.
+        await docRef.update(updatePayload);
+
+        return res.status(200).json({ 
+            message: "Expediente actualizado con éxito.",
+            id: docRef.id 
         });
-
-        //
-
-        return res.status(200).json({ message: "Movimiento agregado con éxito." });
 
     } catch (error) {
         console.error("Error al agregar movimiento:", error);
-        return res.status(500).json({ error: "Error interno del servidor11" });
+        return res.status(500).json({ error: "Error interno del servidor." });
     }
 });
 
 // Consultar inventario por fechaRegistrado y areaRegistrado
+/**
+ * Consulta el inventario de forma eficiente usando un índice compuesto.
+ * Creado el 03 de julio de 2025, en Chilpancingo.
+ */
+// 1. (Sugerencia) Adecuamos la ruta para que el parámetro coincida con el campo de la base de datos.
+router.get("/consultaInventario/anio/:anio/areaDeRegistro/:codigoSeccion", async (req, res) => {
+    try {
+        const { anio, codigoSeccion } = req.params;
+
+        // Tu validación sigue siendo perfecta.
+        if (!anio || isNaN(anio) || !codigoSeccion) {
+            return res.status(400).json({ error: "El año y el área de registro son obligatorios." });
+        }
+
+        // 2. ¡LA CONSULTA OPTIMIZADA! Filtramos por ambos campos directamente en la base de datos.
+        const snapshot = await db
+            .collection("inventario")
+            .where("anioRegistro", "==", parseInt(anio))
+            .where("areaDeRegistro", "==", codigoSeccion)
+            .get();
+
+        if (snapshot.empty) {
+            // Este mensaje de error ahora es más preciso.
+            return res.status(404).json({
+                message: `No se encontraron registros para el año ${anio} y el área ${codigoSeccion}.`
+            });
+        }
+
+        // 3. Simplificamos el procesamiento. Ya no es necesario filtrar manualmente en JavaScript.
+        // Directamente mapeamos los documentos encontrados a un array de resultados.
+        const resultados = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        return res.status(200).json(resultados);
+
+    } catch (error) {
+        console.error("Error al consultar inventario:", error);
+        return res.status(500).json({ error: "Error interno del servidor" });
+    }
+});
+
+/*
 router.get("/consultaInventario/anio/:anio/areaOrigen/:codigoSeccion", async (req, res) => {
     try {
         const { anio, codigoSeccion } = req.params;
@@ -214,9 +209,45 @@ router.get("/consultaInventario/anio/:anio/areaOrigen/:codigoSeccion", async (re
         console.error("Error al consultar inventario:", error);
         return res.status(500).json({ error: "Error interno del servidor" });
     }
-});
+});*/
 
 //consulta de expedientes turnados
+/**
+ * Consulta los expedientes turnados a un área específica en un año dado.
+ * Utiliza un índice compuesto y el operador 'array-contains'.
+ */
+router.get("/consultaTurnados/anio/:anio/areaDestino/:codigoEnviado", async (req, res) => {
+    try {
+        const { anio, codigoEnviado } = req.params;
+
+        if (!anio || isNaN(anio) || !codigoEnviado) {
+            return res.status(400).json({ error: "El año y el código de área son obligatorios." });
+        }
+
+        // --- ¡LA NUEVA CONSULTA SÚPER EFICIENTE! ---
+        const snapshot = await db
+            .collection("inventario")
+            .where("anioRegistro", "==", parseInt(anio))
+            .where("areasInvolucradas", "array-contains", codigoEnviado)
+            .get();
+
+        if (snapshot.empty) {
+            return res.status(404).json({
+                message: `No se encontraron expedientes turnados al área ${codigoEnviado} en el año ${anio}.`
+            });
+        }
+
+        // El procesamiento es directo, ya no hay que filtrar en el servidor.
+        const resultados = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        return res.status(200).json(resultados);
+
+    } catch (error) {
+        console.error("Error al consultar expedientes turnados:", error);
+        return res.status(500).json({ error: "Error interno del servidor" });
+    }
+});
+/*
 router.get("/consultaTurnados/anio/:anio/areaDestino/:codigoEnviado", async (req, res) => {
     try {
         const { anio, codigoEnviado } = req.params;
@@ -269,7 +300,7 @@ router.get("/consultaTurnados/anio/:anio/areaDestino/:codigoEnviado", async (req
         console.error("Error al consultar inventario:", error);
         return res.status(500).json({ error: "Error interno del servidor" });
     }
-});
+});*/
 
 ////////////////////////////////////////////////
 
