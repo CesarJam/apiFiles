@@ -7,7 +7,7 @@ const { db, FieldValue } = require("./firebaseConfig");
  */
 
 // MÉTODO POST ACTUALIZADO 2025/07/02 PARA REGISTRAR INVENTARIO ok
-
+/*
 router.post("/inventario", async (req, res) => {
     try {
         // --- 1. Desestructuración Simplificada ---
@@ -57,6 +57,66 @@ router.post("/inventario", async (req, res) => {
                     areaDestino: Array.isArray(registro.areaDestino) ? registro.areaDestino : [registro.areaDestino]
                 }
             ]
+        });
+
+        return res.status(201).json({
+            message: "Inventario registrado con éxito",
+            id: docRef.id
+        });
+
+    } catch (error) {
+        console.error("Error al registrar el inventario:", error);
+        return res.status(500).json({ error: "Error interno del servidor" });
+    }
+});*/
+/**
+ * Endpoint para CREAR un nuevo expediente de inventario.
+ * Recibe un JSON anidado y construye la estructura final en la base de datos.
+ * Creado el 08 de julio de 2025, en Chilpancingo.
+ */
+router.post("/inventario", async (req, res) => {
+    try {
+        // 1. Desestructura el body esperando los objetos anidados
+        const {
+            numeroExpediente,
+            asunto,
+            areaDeRegistro,
+            listaDeDependencias,
+            datosGenerales,
+            subserie,
+            registro
+        } = req.body;
+
+        // 2. Validación principal de que los objetos y campos clave existan
+        if (!numeroExpediente || !asunto || !areaDeRegistro || !datosGenerales || !subserie || !registro) {
+            return res.status(400).json({ error: "Faltan campos u objetos principales en la petición." });
+        }
+
+        // 3. El servidor define la lógica de negocio (status inicial y año de registro)
+        const statusActual = "registro";
+        const anioRegistro = parseInt(registro.fecha?.split("-")[0]);
+
+        if (!registro.fecha || isNaN(anioRegistro)) {
+            return res.status(400).json({ error: "La fecha de registro es obligatoria y debe tener un formato válido." });
+        }
+
+        const docRef = db.collection("inventario").doc();
+
+        // 4. Se construye el documento a guardar en Firestore
+        await docRef.set({
+            numeroExpediente,
+            asunto,
+            listaDeDependencias,
+            anioRegistro,
+            statusActual,
+            areaDeRegistro,     // Campo principal para consultas eficientes
+            datosGenerales,     // Objeto completo
+            subserie,           // Objeto completo
+            historialMovimientos: [{
+                ...registro,    // Contenido del primer movimiento
+                tipo: "registro", // Se asegura el tipo
+                areaOrigen: areaDeRegistro, // Se añade el origen para un historial completo
+            }]
         });
 
         return res.status(201).json({
