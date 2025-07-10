@@ -6,73 +6,10 @@ const { db, FieldValue } = require("./firebaseConfig");
  * Inventarios
  */
 
-// MÉTODO POST ACTUALIZADO 2025/07/02 PARA REGISTRAR INVENTARIO ok
-/*
-router.post("/inventario", async (req, res) => {
-    try {
-        // --- 1. Desestructuración Simplificada ---
-        // Asumimos que el body ya viene con la estructura anidada.
-        const {
-            numeroExpediente,
-            asunto,
-            areaDeRegistro,
-            listaDeDependencias,
-            datosGenerales,
-            subserie,
-            registro 
-        } = req.body;
-
-        // La validación se puede hacer más específica sobre los objetos.
-        if (!numeroExpediente || !asunto || !datosGenerales || !subserie || !registro || !areaDeRegistro) {
-            return res.status(400).json({ error: "Faltan campos u objetos principales." });
-        }
-
-        // --- 2. statusActual se define en el servidor ---
-        const statusActual = "registro";
-
-        const { fecha } = registro;
-        const anioRegistro = parseInt(fecha?.split("-")[0]);
-        if (!fecha || isNaN(anioRegistro)) {
-            return res.status(400).json({ error: "El campo 'fecha' de registro es obligatorio y válido." });
-        }
-
-        const docRef = db.collection("inventario").doc();
-
-        // El objeto que se guarda en la DB ahora es mucho más directo
-        await docRef.set({
-            numeroExpediente,
-            asunto,
-            listaDeDependencias,
-            anioRegistro,
-            statusActual,
-            areaDeRegistro,
-            areasInvolucradas: registro.areaDestino || [],
-            datosGenerales, // Se pasa el objeto directamente
-            subserie,       // Se pasa el objeto directamente
-            historialMovimientos: [
-                {
-                    ...registro, // Usamos spread para copiar todas las propiedades del objeto registro
-                    tipo: "registro", // Nos aseguramos que el tipo sea 'registro'
-                    areaOrigen: areaDeRegistro,
-                    areaDestino: Array.isArray(registro.areaDestino) ? registro.areaDestino : [registro.areaDestino]
-                }
-            ]
-        });
-
-        return res.status(201).json({
-            message: "Inventario registrado con éxito",
-            id: docRef.id
-        });
-
-    } catch (error) {
-        console.error("Error al registrar el inventario:", error);
-        return res.status(500).json({ error: "Error interno del servidor" });
-    }
-});*/
 /**
  * Endpoint para CREAR un nuevo expediente de inventario.
  * Recibe un JSON anidado y construye la estructura final en la base de datos.
- * Creado el 08 de julio de 2025, en Chilpancingo.
+ * Creado el 08 de julio de 2025
  */
 router.post("/inventario", async (req, res) => {
     try {
@@ -131,11 +68,81 @@ router.post("/inventario", async (req, res) => {
 });
 
 /**
+ * Endpoint para MODIFICAR un expediente existente.
+ * Actualiza los datos maestros y el primer movimiento del historial
+ * de forma segura usando una transacción de Firestore.
+ */
+router.patch("/inventario/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+        const datosActualizados = req.body;
+
+        // Validación básica
+        if (!datosActualizados || Object.keys(datosActualizados).length === 0) {
+            return res.status(400).json({ error: "No se proporcionaron datos para actualizar." });
+        }
+
+        const docRef = db.collection("inventario").doc(id);
+
+        // Usamos una transacción para leer y luego escribir de forma segura
+        await db.runTransaction(async (transaction) => {
+            const docSnap = await transaction.get(docRef);
+
+            if (!docSnap.exists) {
+                // Lanzamos un error que será capturado por el bloque catch principal
+                throw { code: 404, message: "No se encontró el expediente con ese ID." };
+            }
+
+            // --- Lógica de Modificación del Historial ---
+            const expedienteActual = docSnap.data();
+            const historialOriginal = expedienteActual.historialMovimientos;
+            const datosRegistroModificados = datosActualizados.registro;
+
+            // Creamos el nuevo primer movimiento fusionando el original con los cambios
+            const nuevoPrimerMovimiento = {
+                ...historialOriginal[0],          // Mantiene campos originales como tipo y areaOrigen
+                ...datosRegistroModificados       // Sobrescribe con los datos modificados (fecha, hora, etc.)
+            };
+
+            // Reconstruimos el array del historial completo
+            const nuevoHistorial = [
+                nuevoPrimerMovimiento,            // El primer movimiento, ahora actualizado
+                ...historialOriginal.slice(1)     // El resto del historial, que no se toca
+            ];
+
+            // --- Preparación del Payload Final ---
+            const payloadFinal = {
+                ...datosActualizados,             // Todos los datos maestros (asunto, datosGenerales, etc.)
+                historialMovimientos: nuevoHistorial // El historial con el primer movimiento corregido
+            };
+
+            // Eliminamos la propiedad 'registro' ya que la hemos fusionado en el historial
+            delete payloadFinal.registro;
+
+            // Dentro de la transacción, actualizamos el documento con el payload final
+            transaction.update(docRef, payloadFinal);
+        });
+
+        return res.status(200).json({
+            message: "Expediente modificado con éxito",
+            id: id
+        });
+
+    } catch (error) {
+        console.error("Error al modificar el expediente:", error);
+        if (error.code === 404) {
+            return res.status(404).json({ error: error.message });
+        }
+        return res.status(500).json({ error: "Error interno del servidor" });
+    }
+});
+
+/**
  * Endpoint para añadir un nuevo movimiento a un expediente existente.
  * Actualiza el historial y el estado actual del documento.
  */
 // 1. Cambiamos el método a PATCH para una mejor semántica RESTful.
-router.patch("/inventario/:id", async (req, res) => {
+router.patch("/inventarioMovimientos/:id", async (req, res) => {
     try {
         const { id } = req.params;
         const nuevoMovimiento = req.body;
