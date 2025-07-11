@@ -47,6 +47,7 @@ router.post("/inventario", async (req, res) => {
             anioRegistro,
             statusActual,
             areaDeRegistro,     // Campo principal para consultas eficientes
+            areasInvolucradas: registro.areaDestino || [], //copia de array del area destino a areasInvolucradas para consulta
             datosGenerales,     // Objeto completo
             subserie,           // Objeto completo
             historialMovimientos: [{
