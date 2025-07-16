@@ -149,7 +149,7 @@ router.patch("/inventarioMovimientos/:id", async (req, res) => {
         const nuevoMovimiento = req.body;
 
         // 2. Tu validación es buena, la mantenemos.
-        const tiposValidos = ["tramite", "concluido"];
+        const tiposValidos = ["tramite", "concluido","paraEntrega","entregadoConAcuse"];
         if (!nuevoMovimiento.tipo || !tiposValidos.includes(nuevoMovimiento.tipo) || !nuevoMovimiento.areaCanalizado || !nuevoMovimiento.fecha || !nuevoMovimiento.usuario) {
             return res.status(400).json({ error: "Petición inválida. Faltan campos obligatorios o el tipo es incorrecto." });
         }
